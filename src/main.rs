@@ -1,27 +1,50 @@
+use std::collections::VecDeque;
 use crate::dal::Dal;
 
 mod dal;
+mod util;
 
 fn main() {
+
     // initialize Dal
-    let mut dal = Dal::new("giraffe.db", dal::PageSize);
+    let mut dal = Dal::new("giraffe.db");
 
-    let mut page_0 = dal.allocateEmptyPage(Some(0));
+    // create , write and commit page
+    writeAndCommitPage(&mut dal, "first page");
+    drop(dal);
 
-    writeToPage(&mut page_0.data, "Page 0, hello", 0);
 
-    dal.writePage(&mut page_0);
+    // re initialize Dal
+    let mut dal = Dal::new("giraffe.db");
+    // create , write and commit page
+    writeAndCommitPage(&mut dal, "second page");
+    drop(dal);
 
-    let mut page_1 = dal.allocateEmptyPage(Some(1));
 
-    writeToPage(&mut page_1.data, "Page 1, hello", 0);
-
-    // commit page
-    dal.writePage(&mut page_1);
-
+    // re initialize Dal
+    let mut dal = Dal::new("giraffe.db");
+    let page_4 = dal.getNextPageNumber();
+    dal.allocateEmptyPage(page_4);
+    // release the page to test the free list
+    dal.releasePage(page_4);
 }
 
 fn writeToPage(buffer: &mut[u8],msg : &str, startAt: usize) {
     // write to buffer from position `startAt`
     buffer[startAt .. msg.len()].copy_from_slice(msg.as_bytes());
+}
+
+fn writeAndCommitPage(dal : &mut Dal, data : &str )  {
+
+    //creates a page and writes the string to that page
+    let nextPageNumber = dal.getNextPageNumber();
+
+    let mut page = dal.allocateEmptyPage(nextPageNumber);
+
+    // write some data to the created page
+    writeToPage(&mut page.data, data, 0);
+
+    //persist data to disk
+    dal.writePage(&mut page);
+
 }
